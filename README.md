@@ -2,6 +2,8 @@
 
 Bot otomatisasi berbasis Node.js untuk melakukan klaim harian, menyelesaikan tugas sosial, dan memicu fitur *Start Mining* secara otomatis di platform **Minegrey**. Mendukung multi-akun sekaligus menggunakan manajemen antrean yang aman.
 
+➡️ REGISTER YOUR ACCOUNT : https://app.minegrey.com/limMaushinx
+
 ## ✨ Fitur Utama
 * 👥 **Multi-Account Support** – Jalankan banyak akun sekaligus menggunakan konfigurasi `accounts.json`.
 * 📊 **Live Balance Tracker** – Menampilkan total saldo `$GREY` beserta status sisa waktu penambangan secara *real-time*.
