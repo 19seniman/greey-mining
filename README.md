@@ -16,5 +16,9 @@ Ikuti langkah-langkah di bawah ini untuk memasang dan menjalankan bot di perangk
 
 ### 1. Kloning Repositori
 ```bash
-git clone [https://github.com/19seniman/greey-mining.git](https://github.com/19seniman/greey-mining.git)
+git clone https://github.com/19seniman/greey-mining.git
 cd greey-mining
+npm init -y 
+nano accounts.json  ( save your data ctrl+y enter)
+run : node lim.js
+
