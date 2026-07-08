@@ -41,7 +41,7 @@ function printBanner() {
   console.log(` ██   █  █ █ █   ▀▀▀▀█▄   ▀▀▀▀█▄ ███▄▄▄██       ▀▀▀▀█▄ ██▀▀▀▀    ▄▄█▀ `);
   console.log(` ██   ██ █   █ ▀█████▀  ▀█████▀   ▀███▀██     ▀█████▀  ▀██████ ▄████▄ `);
   console.log(`========================================================================${C.reset}`);
-  console.log(`${C.cyan}${C.bright}                 MINEGREY AUTOMATION BOT v2.0 - 2026${C.reset}\n`);
+  console.log(`${C.cyan}${C.bright}                 MINEGREY AUTOMATION BOT v2.5 - 2026${C.reset}\n`);
 }
 
 function getBaseHeaders() {
@@ -88,29 +88,23 @@ async function login() {
   }
 }
 
-// Fungsi khusus Fetch Profile untuk mengambil info balance/saldo
-async function checkBalance(token) {
-  const url = `${BASE_URL}${PROFILE_PATH}`;
-  const headers = { ...getBaseHeaders(), 'authorization': `Bearer ${token}`, 'cache-control': 'no-cache', 'referer': `${BASE_URL}/dashboard` };
+// Fungsi memproses respon data mining asli peramban dan menampilkan balance
+function displayMiningStats(responseData) {
+  const totalBalance = responseData?.balance ?? 0;
+  const sessionBalance = responseData?.sessionBalance ?? 0;
+  const isMining = responseData?.miningActive ? "AKTIF 🚀" : "MATI 🛑";
+  const speed = responseData?.totalRate ?? 0;
+  const expiry = responseData?.session_expiry ? new Date(responseData.session_expiry).toLocaleString() : "-";
 
-  try {
-    const response = await axios.get(url, { headers, timeout: 15000 });
-    const userData = response.data?.data || response.data;
-    
-    // Mencari kemungkinan properti balance di dalam response API
-    const balance = userData?.balance ?? userData?.points ?? userData?.greyBalance ?? userData?.tokens ?? "0";
-    const email = userData?.email || IDENTIFIER;
-
-    console.log(`\n${C.bgGray}${C.bright}  [ PROFILE INFO ]  ${C.reset}`);
-    console.log(`${C.cyan}📧 Account :${C.reset} ${email}`);
-    console.log(`${C.green}💰 Balance :${C.bright} ${balance} $GREY ${C.reset}\n`);
-    return true;
-  } catch (err) {
-    console.error(`${C.red}❌ Gagal mengambil informasi saldo:${C.reset}`, err.response?.data || err.message);
-    return false;
-  }
+  console.log(`\n${C.bgGray}${C.bright}  [ 📊 STATISTIK MINING GREY ]  ${C.reset}`);
+  console.log(`${C.cyan}💰 Total Balance   :${C.bright} ${totalBalance} $GREY ${C.reset}`);
+  console.log(`${C.yellow}⏳ Session Balance :${C.reset} ${parseFloat(sessionBalance).toFixed(6)} $GREY`);
+  console.log(`${C.green}⚡ Status Mining   :${C.reset} ${isMining}`);
+  console.log(`${C.green}📈 Kecepatan       :${C.reset} ${speed} GREY/jam`);
+  console.log(`${C.magenta}📅 Sesi Berakhir   :${C.reset} ${expiry}\n`);
 }
 
+// Pengirim request GET harian otomatis
 async function sendGetRequest(token, pathEndpoint, taskName) {
   const url = `${BASE_URL}${pathEndpoint}`;
   const headers = { ...getBaseHeaders(), 'authorization': `Bearer ${token}`, 'cache-control': 'no-cache', 'pragma': 'no-cache', 'referer': `${BASE_URL}/dashboard` };
@@ -119,10 +113,15 @@ async function sendGetRequest(token, pathEndpoint, taskName) {
     process.stdout.write(`${C.dim}⏳ [Task] ${taskName}... ${C.reset}`);
     const response = await axios.get(url, { headers, timeout: 15000 });
     
-    // Bersihkan baris pemrosesan, ganti dengan tanda centang sukses berwarna hijau
     process.stdout.clearLine(0);
     process.stdout.cursorTo(0);
     console.log(`${C.green}✔ [Sukses]${C.reset} ${taskName}`);
+    
+    // Deteksi jika yang dipanggil adalah endpoint MINING, langsung oper datanya ke layar terminal
+    if (pathEndpoint === MINING_PATH && response.data) {
+      displayMiningStats(response.data);
+    }
+    
     return true;
   } catch (err) {
     process.stdout.clearLine(0);
@@ -153,12 +152,11 @@ async function runBot() {
   }
 
   if (token) {
-    // 1. Cek info akun dan total Balance awal
-    await checkBalance(token);
+    console.log(`${C.magenta}🛠️ Memulai rangkaian aktivitas...${C.reset}`);
+    
+    await sendGetRequest(token, PROFILE_PATH, 'Cek Profil Akun');
     await delay(1500);
 
-    // 2. Rangkaian rutinitas task harian
-    console.log(`${C.magenta}🛠️ Memulai rangkaian aktivitas...${C.reset}`);
     await sendGetRequest(token, UNREAD_PATH, 'Cek Notifikasi');
     await delay(1500);
 
@@ -171,15 +169,11 @@ async function runBot() {
     await sendGetRequest(token, SOCIAL_SHARE_PATH, 'Social Share (Tengah)');
     await delay(2000);
 
-    await sendGetRequest(token, MINING_PATH, 'Memicu Start Mining 🚀');
-    await delay(3000);
-
-    await sendGetRequest(token, SOCIAL_SHARE_PATH, 'Social Share (Akhir)');
+    // Di sinilah data keseimbangan (balance) 2 GREY milikmu dibaca & diproses otomatis ke layar
+    await sendGetRequest(token, MINING_PATH, 'Memicu Start Mining & Fetch Balance 🚀');
     await delay(2000);
 
-    // 3. Cek ulang saldo akhir setelah mining/checkin dipicu
-    console.log(`\n${C.yellow}🔄 Memperbarui info saldo...${C.reset}`);
-    await checkBalance(token);
+    await sendGetRequest(token, SOCIAL_SHARE_PATH, 'Social Share (Akhir)');
     
     console.log(`${C.cyan}=======================================================${C.reset}`);
     console.log(`${C.green}${C.bright}🎉 Selesai! Bot Standby. Akan mengulang dalam 24 Jam...${C.reset}`);
@@ -195,6 +189,7 @@ async function main() {
   
   await runBot();
 
+  // Terus menyala dan mengulang rutinitas otomatis setiap kelipatan 24 jam
   setInterval(async () => {
     await runBot();
   }, TWENTY_FOUR_HOURS);
