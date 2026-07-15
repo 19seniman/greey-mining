@@ -2,6 +2,7 @@ require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const logger = require('./logger');
 
 const BASE_URL = process.env.MINEGREY_BASE_URL || 'https://app.minegrey.com';
 const MINING_PATH = process.env.MINEGREY_MINING_PATH || '/api/mining';
@@ -29,7 +30,6 @@ function getToken() {
     return process.env.MINEGREY_TOKEN.trim();
   }
 
-  // Prioritas 2: token hasil login.js yang tersimpan di token.json
   if (fs.existsSync(TOKEN_FILE)) {
     try {
       const saved = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8'));
@@ -70,8 +70,7 @@ async function callEndpoint(pathName, method, referer) {
 }
 
 async function runMiningCycle() {
-  const timestamp = new Date().toISOString();
-  console.log(`\n[${timestamp}] Menjalankan siklus mining...`);
+  logger.section('Siklus Mining Dimulai');
 
   try {
     const res = await callEndpoint(
@@ -81,21 +80,27 @@ async function runMiningCycle() {
     );
 
     if (res.status === 403 || res.status === 503) {
-      console.error(
-        `[${timestamp}] Kemungkinan diblokir Cloudflare (status ${res.status}). ` +
-          `Token mungkin masih valid, tapi request non-browser ditahan.`
+      logger.error(
+        `Kemungkinan diblokir Cloudflare (status ${res.status}). Token mungkin masih valid, tapi request non-browser ditahan.`
       );
     } else if (res.status >= 200 && res.status < 300) {
-      console.log(`[${timestamp}] Mining berhasil dipanggil. Response:`, res.data);
+      logger.success('Mining berhasil dipicu!');
+      const balance = res.data?.balance ?? res.data?.data?.balance;
+      const rate = res.data?.totalRate ?? res.data?.data?.totalRate;
+      const active = res.data?.miningActive ?? res.data?.data?.miningActive;
+      if (balance !== undefined) logger.data('Balance', `${balance} $GREY`);
+      if (rate !== undefined) logger.data('Rate', `${rate} GREY/jam`);
+      if (active !== undefined) logger.data('Status', active ? 'AKTIF 🚀' : 'TIDAK AKTIF');
+      if (balance === undefined && rate === undefined && active === undefined) {
+        logger.data('Response', JSON.stringify(res.data));
+      }
     } else if (res.status === 401) {
-      console.error(
-        `[${timestamp}] Token tidak valid/kadaluarsa (401). Ambil token baru dari browser.`
-      );
+      logger.error('Token tidak valid/kadaluarsa (401). Ambil token baru dari browser.');
     } else {
-      console.warn(`[${timestamp}] Status tak terduga (${res.status}):`, res.data);
+      logger.warn(`Status tak terduga (${res.status}): ${JSON.stringify(res.data)}`);
     }
   } catch (err) {
-    console.error(`[${timestamp}] Gagal memanggil endpoint mining:`, err.message);
+    logger.error(`Gagal memanggil endpoint mining: ${err.message}`);
   }
 
   if (ENABLE_CHECKIN) {
@@ -105,17 +110,25 @@ async function runMiningCycle() {
         CHECKIN_METHOD,
         `${BASE_URL}/dashboard`
       );
-      console.log(`[${timestamp}] Check-in status ${res.status}:`, res.data);
+      if (res.status >= 200 && res.status < 300) {
+        logger.success(`Check-in berhasil (status ${res.status})`);
+      } else {
+        logger.warn(`Check-in status ${res.status}: ${JSON.stringify(res.data)}`);
+      }
     } catch (err) {
-      console.error(`[${timestamp}] Gagal check-in:`, err.message);
+      logger.error(`Gagal check-in: ${err.message}`);
     }
   }
 }
 
+logger.printBanner();
+logger.info(`Interval otomatis: setiap ${INTERVAL_HOURS} jam`);
+logger.info(`Endpoint mining: ${MINING_METHOD} ${BASE_URL}${MINING_PATH}`);
+if (ENABLE_CHECKIN) logger.info(`Check-in harian: AKTIF (${CHECKIN_METHOD} ${BASE_URL}${CHECKIN_PATH})`);
+
 runMiningCycle();
 
 const intervalMs = INTERVAL_HOURS * 60 * 60 * 1000;
-console.log(
-  `Auto-mining aktif. Akan mengulang tiap ${INTERVAL_HOURS} jam. Tekan Ctrl+C untuk berhenti.`
-);
 setInterval(runMiningCycle, intervalMs);
+
+logger.info('Auto-mining aktif. Tekan Ctrl+C untuk berhenti.\n');
