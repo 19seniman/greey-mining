@@ -1,0 +1,15 @@
+{
+  "name": "minegrey",
+  "version": "1.0.0",
+  "description": "Script auto mining ",
+  "main": "login.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node login.js",
+    "mine": "node mine.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5"
+  }
+}
